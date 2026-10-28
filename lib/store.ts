@@ -61,11 +61,13 @@ export function createMemoryStore(): Store {
 // ---------- Supabase ----------
 export function createSupabaseStore(url: string, key: string): Store {
   const rest = `${url.replace(/\/$/, "")}/rest/v1`;
-  const headers = {
+  // Legacy service_role keys are JWTs (eyJ...) and go in both headers.
+  // New secret keys (sb_secret_...) are not JWTs: send them only as apikey.
+  const headers: Record<string, string> = {
     apikey: key,
-    Authorization: `Bearer ${key}`,
     "Content-Type": "application/json",
   };
+  if (key.startsWith("eyJ")) headers.Authorization = `Bearer ${key}`;
 
   async function call(path: string, init: RequestInit = {}) {
     const res = await fetch(`${rest}${path}`, {
