@@ -27,7 +27,7 @@ async function send(body: Record<string, unknown>) {
   const res = await fetch(endpoint(), {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN?.trim().replace(/^["']|["']$/g, "")}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ messaging_product: "whatsapp", ...body }),
