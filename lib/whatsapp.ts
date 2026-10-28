@@ -1,14 +1,14 @@
-// Cliente mínimo de la WhatsApp Cloud API
+// Minimal WhatsApp Cloud API client
 const VERSION = process.env.GRAPH_API_VERSION ?? "v23.0";
-const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID!;
-const TOKEN = process.env.WHATSAPP_TOKEN!;
 
-const URL = `https://graph.facebook.com/${VERSION}/${PHONE_NUMBER_ID}/messages`;
+function endpoint() {
+  return `https://graph.facebook.com/${VERSION}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+}
 
-// Los números argentinos llegan como 549 11 XXXXXXXX, pero en modo prueba
-// Meta los guarda como 54 11 15 XXXXXXXX. Sin esta conversión aparece el
-// error 131030 "Recipient phone number not in allowed list".
-// (Cubre área 11 / AMBA; para otras áreas agregalas a la lista.)
+// Argentine numbers arrive as 549 11 XXXXXXXX, but in test mode Meta stores
+// them in the allowed list as 54 11 15 XXXXXXXX. Without this conversion the
+// API answers error 131030 "Recipient phone number not in allowed list".
+// Covers area code 11 (Buenos Aires / AMBA); add more area codes as needed.
 const AR_AREAS = ["11"];
 
 export function normalizeAR(num: string) {
@@ -23,16 +23,18 @@ export function normalizeAR(num: string) {
 
 async function send(body: Record<string, unknown>) {
   if (typeof body.to === "string") body.to = normalizeAR(body.to);
-  const res = await fetch(URL, {
+
+  const res = await fetch(endpoint(), {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${TOKEN}`,
+      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ messaging_product: "whatsapp", ...body }),
   });
+
   if (!res.ok) {
-    console.error("Error WhatsApp API:", res.status, await res.text());
+    console.error("[whatsapp] API error", res.status, await res.text());
   }
 }
 
@@ -40,12 +42,10 @@ export function sendText(to: string, text: string) {
   return send({ to, type: "text", text: { body: text } });
 }
 
-// Botones de respuesta rápida (máximo 3, título de hasta 20 caracteres)
-export function sendButtons(
-  to: string,
-  text: string,
-  buttons: { id: string; title: string }[]
-) {
+export type Button = { id: string; title: string };
+
+// Quick-reply buttons: max 3, title up to 20 characters
+export function sendButtons(to: string, text: string, buttons: Button[]) {
   return send({
     to,
     type: "interactive",
@@ -53,9 +53,9 @@ export function sendButtons(
       type: "button",
       body: { text },
       action: {
-        buttons: buttons.map((b) => ({
+        buttons: buttons.slice(0, 3).map((b) => ({
           type: "reply",
-          reply: { id: b.id, title: b.title },
+          reply: { id: b.id, title: b.title.slice(0, 20) },
         })),
       },
     },
